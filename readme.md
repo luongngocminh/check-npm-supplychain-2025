@@ -231,7 +231,7 @@ The scanner monitors **58 compromised NPM packages**:
 | swc-plugin-component-annotate | 1.9.2 | Build Tools |
 | ts-gaussian | 3.0.6 | Math/Statistics |
 
-*Note: Some packages have multiple compromised versions listed. The "lodash" entry is included for testing purposes.*
+*[These packages are from the September 2025 supply chain attack](https://socket.dev/blog/ongoing-supply-chain-attack-targets-crowdstrike-npm-packages)*
 
 ---
 
@@ -328,3 +328,6 @@ Found 5 compromised package references across 2 projects:
 - **Comprehensive** — Scans lockfiles, caches, Dockerfiles, and CI configs
 - **Project-focused** — Groups findings by project for easier analysis
 - **Smart detection** — Auto-detects package managers and yarn/pnpm cache locations
+
+## Acknowledgements
+- Thanks to the original bash script author, joeskeen, for the initial idea and logic https://gist.github.com/joeskeen/202fe9f6d7a2f624097962507c5ab681
