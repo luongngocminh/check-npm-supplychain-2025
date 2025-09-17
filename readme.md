@@ -169,8 +169,9 @@ Example verbose output:
 
 ## 🚨 What It Detects
 
-The scanner monitors **58 compromised NPM packages**:
+The scanner monitors **200+ compromised NPM packages** from the ongoing supply chain attack:
 
+### Core Terminal & Color Utilities
 | Package | Version(s) | Category |
 |---------|------------|----------|
 | ansi-regex | 6.2.1 | Terminal/ANSI |
@@ -192,46 +193,96 @@ The scanner monitors **58 compromised NPM packages**:
 | supports-color | 10.2.1 | Terminal/Colors |
 | supports-hyperlinks | 4.1.1 | Terminal |
 | wrap-ansi | 9.0.1 | Terminal/ANSI |
-| angulartics2 | 14.1.2 | Angular |
-| @ctrl/deluge | 7.2.2 | BitTorrent |
-| @ctrl/golang-template | 1.4.3 | Templates |
-| @ctrl/magnet-link | 4.0.4 | BitTorrent |
-| @ctrl/ngx-codemirror | 7.0.2 | Angular/Editor |
-| @ctrl/ngx-csv | 6.0.2 | Angular/CSV |
-| @ctrl/ngx-emoji-mart | 9.2.2 | Angular/UI |
-| @ctrl/ngx-rightclick | 4.0.2 | Angular/UI |
-| @ctrl/qbittorrent | 9.7.2 | BitTorrent |
-| @ctrl/react-adsense | 2.0.2 | React/Ads |
-| @ctrl/shared-torrent | 6.3.2 | BitTorrent |
-| @ctrl/tinycolor | 4.1.1, 4.1.2 | Colors |
-| @ctrl/torrent-file | 4.1.2 | BitTorrent |
-| @ctrl/transmission | 7.3.1 | BitTorrent |
-| @ctrl/ts-base32 | 4.0.2 | Encoding |
-| encounter-playground | 0.0.5 | Healthcare |
-| json-rules-engine-simplified | 0.2.4, 0.2.1 | Rules Engine |
-| koa2-swagger-ui | 5.11.2, 5.11.1 | API Documentation |
-| @nativescript-community/gesturehandler | 2.0.35 | NativeScript/UI |
-| @nativescript-community/sentry | 4.6.43 | NativeScript/Monitoring |
-| @nativescript-community/text | 1.6.13 | NativeScript/UI |
-| @nativescript-community/ui-collectionview | 6.0.6 | NativeScript/UI |
-| @nativescript-community/ui-drawer | 0.1.30 | NativeScript/UI |
-| @nativescript-community/ui-image | 4.5.6 | NativeScript/UI |
-| @nativescript-community/ui-material-bottomsheet | 7.2.72 | NativeScript/Material |
-| @nativescript-community/ui-material-core | 7.2.76 | NativeScript/Material |
-| @nativescript-community/ui-material-core-tabs | 7.2.76 | NativeScript/Material |
-| ngx-color | 10.0.2 | Angular/Colors |
-| ngx-toastr | 19.0.2 | Angular/Notifications |
-| ngx-trend | 8.0.1 | Angular/Charts |
-| react-complaint-image | 0.0.35 | React/Images |
-| react-jsonschema-form-conditionals | 0.3.21 | React/Forms |
-| react-jsonschema-form-extras | 1.0.4 | React/Forms |
-| rxnt-authentication | 0.0.6 | Healthcare/Auth |
-| rxnt-healthchecks-nestjs | 1.0.5 | Healthcare/Monitoring |
-| rxnt-kue | 1.0.7 | Healthcare/Queue |
-| swc-plugin-component-annotate | 1.9.2 | Build Tools |
-| ts-gaussian | 3.0.6 | Math/Statistics |
 
-*[These packages are from the September 2025 supply chain attack](https://socket.dev/blog/ongoing-supply-chain-attack-targets-crowdstrike-npm-packages)*
+### Angular & UI Components
+| Package | Version(s) | Category |
+|---------|------------|----------|
+| angulartics2 | 14.1.1, 14.1.2 | Angular/Analytics |
+| ngx-bootstrap | 18.1.4, 19.0.3, 19.0.4, 20.0.3-20.0.5 | Angular/Bootstrap |
+| ngx-color | 10.0.1, 10.0.2 | Angular/Colors |
+| ngx-toastr | 19.0.1, 19.0.2 | Angular/Notifications |
+| ngx-trend | 8.0.1 | Angular/Charts |
+| ngx-ws | 1.1.5, 1.1.6 | Angular/WebSockets |
+| ng2-file-upload | 7.0.2, 7.0.3, 8.0.1-8.0.3, 9.0.1 | Angular/File Upload |
+
+### React Components
+| Package | Version(s) | Category |
+|---------|------------|----------|
+| react-complaint-image | 0.0.32, 0.0.35 | React/Images |
+| react-jsonschema-form-conditionals | 0.3.18, 0.3.21 | React/Forms |
+| react-jsonschema-form-extras | 1.0.4 | React/Forms |
+| react-jsonschema-rxnt-extras | 0.4.9 | React/Forms |
+
+### @ctrl Libraries (BitTorrent & Utilities)
+| Package | Version(s) | Category |
+|---------|------------|----------|
+| @ctrl/deluge | 7.2.1, 7.2.2 | BitTorrent |
+| @ctrl/golang-template | 1.4.2, 1.4.3 | Templates |
+| @ctrl/magnet-link | 4.0.3, 4.0.4 | BitTorrent |
+| @ctrl/ngx-codemirror | 7.0.1, 7.0.2 | Angular/Editor |
+| @ctrl/ngx-csv | 6.0.1, 6.0.2 | Angular/CSV |
+| @ctrl/ngx-emoji-mart | 9.2.1, 9.2.2 | Angular/UI |
+| @ctrl/ngx-rightclick | 4.0.1, 4.0.2 | Angular/UI |
+| @ctrl/qbittorrent | 9.7.1, 9.7.2 | BitTorrent |
+| @ctrl/react-adsense | 2.0.1, 2.0.2 | React/Ads |
+| @ctrl/shared-torrent | 6.3.1, 6.3.2 | BitTorrent |
+| @ctrl/tinycolor | 4.1.1, 4.1.2 | Colors |
+| @ctrl/torrent-file | 4.1.1, 4.1.2 | BitTorrent |
+| @ctrl/transmission | 7.3.1 | BitTorrent |
+| @ctrl/ts-base32 | 4.0.1, 4.0.2 | Encoding |
+
+### NativeScript Components
+| Package | Version(s) | Category |
+|---------|------------|----------|
+| @nativescript-community/arraybuffers | 1.1.6-1.1.8 | NativeScript/Utilities |
+| @nativescript-community/gesturehandler | 2.0.35 | NativeScript/UI |
+| @nativescript-community/perms | 3.0.5-3.0.8 | NativeScript/Permissions |
+| @nativescript-community/sentry | 4.6.43 | NativeScript/Monitoring |
+| @nativescript-community/sqlite | 3.5.2-3.5.5 | NativeScript/Database |
+| @nativescript-community/text | 1.6.9-1.6.13 | NativeScript/UI |
+| @nativescript-community/typeorm | 0.2.30-0.2.33 | NativeScript/ORM |
+| @nativescript-community/ui-* | Various | NativeScript/UI Components |
+
+### Enterprise & Organizational Packages
+| Package | Version(s) | Category |
+|---------|------------|----------|
+| @crowdstrike/* | Various | Security/Enterprise |
+| @art-ws/* | Various | Web Services |
+| @operato/* | Various | Business Applications |
+| @teselagen/* | Various | Bioinformatics |
+| @yoobic/* | Various | Mobile Platform |
+| @nstudio/* | Various | Development Tools |
+
+### Healthcare & Specialized
+| Package | Version(s) | Category |
+|---------|------------|----------|
+| encounter-playground | 0.0.2-0.0.5 | Healthcare |
+| rxnt-authentication | 0.0.3-0.0.6 | Healthcare/Auth |
+| rxnt-healthchecks-nestjs | 1.0.2-1.0.5 | Healthcare/Monitoring |
+| rxnt-kue | 1.0.4-1.0.7 | Healthcare/Queue |
+| capacitor-plugin-healthapp | 0.0.2, 0.0.3 | Mobile/Healthcare |
+| capacitor-plugin-ihealth | 1.1.8, 1.1.9 | Mobile/Healthcare |
+
+### Development Tools & Build Systems
+| Package | Version(s) | Category |
+|---------|------------|----------|
+| swc-plugin-component-annotate | 1.9.1, 1.9.2 | Build Tools |
+| eslint-config-crowdstrike* | Various | Linting |
+| json-rules-engine-simplified | 0.2.1, 0.2.4 | Rules Engine |
+| ts-gaussian | 3.0.5, 3.0.6 | Math/Statistics |
+| ts-imports | 1.0.1, 1.0.2 | TypeScript/Utilities |
+
+### API & Server Tools
+| Package | Version(s) | Category |
+|---------|------------|----------|
+| koa2-swagger-ui | 5.11.1, 5.11.2 | API Documentation |
+| @hestjs/* | Various | Node.js Framework |
+| @nexe/* | Various | Node.js Packaging |
+
+### And Many More...
+The scanner detects over 200 compromised packages across various categories including mobile development (Capacitor plugins), business applications, bioinformatics tools, and specialized industry packages.
+
+*[These packages are from the ongoing September 2025 supply chain attack](https://socket.dev/blog/ongoing-supply-chain-attack-targets-crowdstrike-npm-packages)*
 
 ---
 
