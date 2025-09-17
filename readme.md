@@ -6,14 +6,62 @@ A fast, concurrent Go-based scanner to detect compromised NPM packages in your p
 
 - 🚀 **Concurrent scanning** - Uses worker pools for fast parallel processing
 - 🔍 **Comprehensive detection** - Scans lockfiles, Dockerfiles, CI configs, vendored dirs, and caches
-- 🖥️ **Cross-platform** - Works on macOS, Linux, and Windows
+- 🖥️ **Cross-platform** - Works on macOS, Linux, and Windows with platform-specific optimizations
 - ⚙️ **Configurable** - CLI flags to control scanning scope and behavior
 - 📊 **Project-focused reporting** - Groups findings by project with detailed statistics
 - 🎯 **Smart package manager detection** - Automatically detects npm, yarn, pnpm projects
+- 🪟 **Enhanced Windows support** - Detects Windows-specific npm cache locations and nvm-windows installations
 
 ## Installation
 
+### Pre-built binaries (Recommended)
+Check the `bin/` directory for pre-built binaries:
+- `check-npm-cache-linux` - Linux x64
+- `check-npm-cache-windows.exe` - Windows x64  
+- `check-npm-cache-macos-intel` - macOS Intel
+- `check-npm-cache-macos-arm64` - macOS Apple Silicon
+
+Simply download and run the appropriate binary for your platform - no additional dependencies required!
+
 ### Build from source
+
+**Prerequisites:** You need Go 1.16 or later to build from source.
+
+#### Install Go (if building from source)
+
+**macOS:**
+```bash
+# Using Homebrew
+brew install go
+
+# Or download from https://golang.org/dl/
+```
+
+**Linux:**
+```bash
+# Ubuntu/Debian
+sudo apt update
+sudo apt install golang-go
+
+# CentOS/RHEL/Fedora
+sudo dnf install golang
+# or: sudo yum install golang
+
+# Or download from https://golang.org/dl/
+```
+
+**Windows:**
+- Download installer from [https://golang.org/dl/](https://golang.org/dl/)
+- Run the `.msi` installer
+- Or use Chocolatey: `choco install golang`
+- Or use Scoop: `scoop install go`
+
+Verify installation:
+```bash
+go version
+```
+
+#### Build commands
 ```bash
 # Build for current platform
 go build -o check-npm-cache main.go
@@ -28,18 +76,58 @@ GOOS=darwin GOARCH=arm64 go build -o bin/check-npm-cache-macos-arm64 main.go
 ## Usage
 
 ### Basic usage
+
+**macOS/Linux (using pre-built binaries):**
 ```bash
 # Scan current directory
-./check-npm-cache
+./bin/check-npm-cache-macos-arm64    # For Apple Silicon Macs
+./bin/check-npm-cache-macos-intel    # For Intel Macs
+./bin/check-npm-cache-linux          # For Linux
 
 # Scan specific directory  
-./check-npm-cache -dir /path/to/project
+./bin/check-npm-cache-macos-arm64 -dir /path/to/project
 
 # Verbose output
-./check-npm-cache -verbose
+./bin/check-npm-cache-macos-arm64 -verbose
 
 # Only scan repository files (skip global caches)
-./check-npm-cache -repo-only
+./bin/check-npm-cache-macos-arm64 -repo-only
+```
+
+**Windows (Command Prompt):**
+```cmd
+REM Scan current directory
+bin\check-npm-cache-windows.exe
+
+REM Scan specific directory
+bin\check-npm-cache-windows.exe -dir C:\path\to\project
+
+REM Verbose output
+bin\check-npm-cache-windows.exe -verbose
+
+REM Only scan repository files (skip global caches)
+bin\check-npm-cache-windows.exe -repo-only
+```
+
+**Windows (PowerShell):**
+```powershell
+# Scan current directory
+.\bin\check-npm-cache-windows.exe
+
+# Scan specific directory
+.\bin\check-npm-cache-windows.exe -dir C:\path\to\project
+
+# Verbose output
+.\bin\check-npm-cache-windows.exe -verbose
+
+# Only scan repository files (skip global caches)
+.\bin\check-npm-cache-windows.exe -repo-only
+```
+
+**If you built from source:**
+```bash
+# Use your custom binary name
+./check-npm-cache -dir /path/to/project
 ```
 
 ### CLI Flags
@@ -158,21 +246,36 @@ The scanner monitors **58 compromised NPM packages**:
 ### 📦 Global Caches (unless disabled with flags)
 
 #### NPM
+**macOS/Linux:**
 - `~/.npm/_cacache` - NPM's content-addressable cache
 - `~/.npm-packages` - Global NPM packages
 
+**Windows:**
+- `%APPDATA%\npm-cache` - NPM cache (Windows-specific location)
+- `%LOCALAPPDATA%\npm-cache` - Alternative NPM cache location
+- `%USERPROFILE%\.npm\_cacache` - Fallback for WSL/Git Bash environments
+- `%USERPROFILE%\.npm-packages` - Global NPM packages
+
 #### Yarn
 - Auto-detected via `yarn cache dir` command
-- Typically `~/.cache/yarn` or `~/.yarn/cache`
+- **macOS/Linux**: Typically `~/.cache/yarn` or `~/.yarn/cache`
+- **Windows**: Typically `%LOCALAPPDATA%\Yarn\Cache` or `%APPDATA%\Local\Yarn\Cache`
 
 #### pnpm
 - Auto-detected via `pnpm store path` command  
-- Typically `~/.pnpm-store` or `~/.local/share/pnpm/store`
+- **macOS/Linux**: Typically `~/.pnpm-store` or `~/.local/share/pnpm/store`
+- **Windows**: Typically `%LOCALAPPDATA%\pnpm\store` or `%APPDATA%\pnpm-store`
 
 #### NVM (Node Version Manager)
+**macOS/Linux (nvm):**
 - `$NVM_DIR/versions/node/*/node_modules` - Node version-specific modules
 - `$NVM_DIR/versions/node/*/.npm` - Version-specific NPM caches
 - Defaults to `~/.nvm` if `$NVM_DIR` not set
+
+**Windows (nvm-windows):**
+- `%NVM_HOME%\v*/node_modules` - Node version-specific modules  
+- `%NVM_HOME%\v*\.npm` - Version-specific NPM caches
+- Defaults to `%APPDATA%\nvm` if `%NVM_HOME%` not set
 
 ## 📊 Example Output
 
