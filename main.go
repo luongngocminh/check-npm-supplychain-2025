@@ -387,14 +387,38 @@ func scanLockfileResolved(filePath string, addFinding func(Finding), verbose boo
 	}
 	defer file.Close()
 
+	// Determine lockfile type
+	filename := filepath.Base(filePath)
+
+	switch filename {
+	case "package-lock.json":
+		scanPackageLockJson(file, filePath, addFinding, verbose)
+	case "yarn.lock":
+		scanYarnLock(file, filePath, addFinding, verbose)
+	case "pnpm-lock.yaml":
+		scanPnpmLock(file, filePath, addFinding, verbose)
+	}
+}
+
+func scanPackageLockJson(file *os.File, filePath string, addFinding func(Finding), verbose bool) {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
 
 		for _, pkg := range compromisedPackages {
 			for _, version := range pkg.Versions {
-				// Match resolved tarball URLs
-				pattern := fmt.Sprintf("%s/-/%s-%s.tgz", pkg.Name, pkg.Name, version)
+				// Match resolved tarball URLs in package-lock.json
+				// Handle scoped packages correctly
+				packageName := pkg.Name
+				tarballName := packageName
+				if strings.HasPrefix(packageName, "@") {
+					parts := strings.Split(packageName, "/")
+					if len(parts) == 2 {
+						tarballName = parts[1] // Remove scope for tarball name
+					}
+				}
+
+				pattern := fmt.Sprintf("%s/-/%s-%s.tgz", packageName, tarballName, version)
 				if strings.Contains(line, pattern) {
 					addFinding(Finding{
 						Package: pkg.Name,
@@ -404,6 +428,108 @@ func scanLockfileResolved(filePath string, addFinding func(Finding), verbose boo
 					})
 					if verbose {
 						fmt.Printf("  Found resolved %s@%s in %s\n", pkg.Name, version, filePath)
+					}
+				}
+			}
+		}
+	}
+}
+
+func scanYarnLock(file *os.File, filePath string, addFinding func(Finding), verbose bool) {
+	scanner := bufio.NewScanner(file)
+	currentPackage := ""
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+
+		// Track current package context
+		for _, pkg := range compromisedPackages {
+			// Check for package declaration lines like: "package@version":
+			if strings.HasPrefix(line, "\"") && strings.Contains(line, pkg.Name) && strings.Contains(line, "@") {
+				if strings.HasSuffix(line, "\":") || strings.HasSuffix(line, "\", ") {
+					currentPackage = pkg.Name
+					// Extract version from package@version declaration
+					for _, version := range pkg.Versions {
+						if strings.Contains(line, fmt.Sprintf("%s@%s", pkg.Name, version)) {
+							addFinding(Finding{
+								Package: pkg.Name,
+								Version: version,
+								File:    filePath,
+								Type:    "resolved",
+							})
+							if verbose {
+								fmt.Printf("  Found resolved %s@%s in %s\n", pkg.Name, version, filePath)
+							}
+							break
+						}
+					}
+				}
+			}
+		}
+
+		// Check for version field when we're in the right package context
+		if currentPackage != "" && strings.HasPrefix(line, "version ") {
+			for _, pkg := range compromisedPackages {
+				if pkg.Name == currentPackage {
+					for _, version := range pkg.Versions {
+						if strings.Contains(line, fmt.Sprintf("\"%s\"", version)) {
+							addFinding(Finding{
+								Package: pkg.Name,
+								Version: version,
+								File:    filePath,
+								Type:    "resolved",
+							})
+							if verbose {
+								fmt.Printf("  Found resolved %s@%s in %s\n", pkg.Name, version, filePath)
+							}
+							break
+						}
+					}
+				}
+			}
+		}
+
+		// Reset context when we hit a new package or end of block
+		if strings.HasSuffix(line, "\":") && !strings.Contains(line, currentPackage) {
+			currentPackage = ""
+		}
+	}
+}
+
+func scanPnpmLock(file *os.File, filePath string, addFinding func(Finding), verbose bool) {
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+
+		for _, pkg := range compromisedPackages {
+			for _, version := range pkg.Versions {
+				// pnpm-lock.yaml format patterns:
+				// In dependencies section: 'package': version or "package": "version"
+				// In packages section: /package/version: or /@scope/package/version:
+				patterns := []string{
+					// Dependencies section patterns
+					fmt.Sprintf("'%s': %s", pkg.Name, version),
+					fmt.Sprintf("\"%s\": \"%s\"", pkg.Name, version),
+					fmt.Sprintf("'%s': '%s'", pkg.Name, version),
+					fmt.Sprintf("%s: %s", pkg.Name, version),
+					// Packages section patterns
+					fmt.Sprintf("/%s/%s:", pkg.Name, version),
+					// Also check for @package@version format
+					fmt.Sprintf("%s@%s", pkg.Name, version),
+				}
+
+				for _, pattern := range patterns {
+					if strings.Contains(line, pattern) {
+						addFinding(Finding{
+							Package: pkg.Name,
+							Version: version,
+							File:    filePath,
+							Type:    "resolved",
+						})
+						if verbose {
+							fmt.Printf("  Found resolved %s@%s in %s\n", pkg.Name, version, filePath)
+						}
+						break
 					}
 				}
 			}
@@ -731,23 +857,26 @@ func printResults(findings []Finding, config ScanConfig) {
 	}
 
 	// Group findings by project directory and package manager
-	projectGroups := make(map[string][]Finding)
+	type findingDetail struct {
+		Package string
+		Version string
+		File    string
+		Type    string
+		Line    int // Not used yet, but can be extended
+	}
+
+	projectGroups := make(map[string][]findingDetail)
 	projectTools := make(map[string]string)
-	packageCount := make(map[string]int)
 	findingTypes := make(map[string]map[string]int)
 
 	for _, finding := range findings {
 		dir := filepath.Dir(finding.File)
-
-		// Trim path before node_modules if present
 		if strings.Contains(dir, "/node_modules/") {
 			parts := strings.Split(dir, "/node_modules/")
 			dir = parts[0]
 		} else if strings.HasSuffix(dir, "/node_modules") {
 			dir = strings.TrimSuffix(dir, "/node_modules")
 		}
-
-		// Walk up to find project root
 		projectRoot := dir
 		for !isRoot(projectRoot) && projectRoot != "." {
 			if _, err := os.Stat(filepath.Join(projectRoot, "package-lock.json")); err == nil {
@@ -765,76 +894,122 @@ func printResults(findings []Finding, config ScanConfig) {
 			}
 			projectRoot = filepath.Dir(projectRoot)
 		}
-
-		projectGroups[projectRoot] = append(projectGroups[projectRoot], finding)
-
-		// Count findings by type per project
+		projectGroups[projectRoot] = append(projectGroups[projectRoot], findingDetail{
+			Package: finding.Package,
+			Version: finding.Version,
+			File:    finding.File,
+			Type:    finding.Type,
+			Line:    0, // Not tracked yet
+		})
 		if _, exists := findingTypes[projectRoot]; !exists {
 			findingTypes[projectRoot] = make(map[string]int)
 		}
 		findingTypes[projectRoot][finding.Type]++
-		packageCount[projectRoot]++
 	}
 
-	// Print detailed findings
-	fmt.Printf("Found %d compromised package references across %d projects:\n\n", len(findings), len(projectGroups))
+	// Prepare report lines
+	var reportLines []string
+	reportLines = append(reportLines, fmt.Sprintf("Found %d compromised package references across %d projects:\n", len(findings), len(projectGroups)))
 
 	for projectRoot, projectFindings := range projectGroups {
 		tool := projectTools[projectRoot]
 		if tool == "" {
 			tool = "unknown"
 		}
-
-		fmt.Printf("🏗️  Project: %s\n", projectRoot)
-		fmt.Printf("   📦 Package Manager: %s\n", tool)
-		fmt.Printf("   🚨 Issues Found: %d\n", len(projectFindings))
+		reportLines = append(reportLines, fmt.Sprintf("🏗️  Project: %s", projectRoot))
+		reportLines = append(reportLines, fmt.Sprintf("   📦 Package Manager: %s", tool))
+		reportLines = append(reportLines, fmt.Sprintf("   🚨 Issues Found: %d", len(projectFindings)))
 
 		// Show breakdown by type
 		types := findingTypes[projectRoot]
 		if types["resolved"] > 0 {
-			fmt.Printf("   📋 Lockfile references: %d\n", types["resolved"])
+			reportLines = append(reportLines, fmt.Sprintf("   📋 Lockfile references: %d", types["resolved"]))
 		}
 		if types["file"] > 0 {
-			fmt.Printf("   📄 File references: %d\n", types["file"])
+			reportLines = append(reportLines, fmt.Sprintf("   📄 File references: %d", types["file"]))
 		}
 		if types["cache"] > 0 {
-			fmt.Printf("   💾 Cache entries: %d\n", types["cache"])
+			reportLines = append(reportLines, fmt.Sprintf("   💾 Cache entries: %d", types["cache"]))
 		}
 
-		// List affected packages
-		uniquePackages := make(map[string][]string)
-		for _, finding := range projectFindings {
-			uniquePackages[finding.Package] = append(uniquePackages[finding.Package], finding.Version)
-		}
-
-		fmt.Printf("   📋 Affected packages:\n")
-		for pkg, versions := range uniquePackages {
-			// Remove duplicates from versions
-			versionSet := make(map[string]bool)
-			for _, v := range versions {
-				versionSet[v] = true
+		// List affected packages with locations
+		reportLines = append(reportLines, "   📋 Affected packages:")
+		packageMap := make(map[string]map[string][]findingDetail) // pkg -> version -> []findingDetail
+		for _, d := range projectFindings {
+			if _, ok := packageMap[d.Package]; !ok {
+				packageMap[d.Package] = make(map[string][]findingDetail)
 			}
-			uniqueVersions := make([]string, 0, len(versionSet))
-			for v := range versionSet {
-				uniqueVersions = append(uniqueVersions, v)
-			}
-			fmt.Printf("      • %s (%s)\n", pkg, strings.Join(uniqueVersions, ", "))
+			packageMap[d.Package][d.Version] = append(packageMap[d.Package][d.Version], d)
 		}
-		fmt.Println()
+		for pkg, versions := range packageMap {
+			for version, details := range versions {
+				for _, d := range details {
+					loc := d.File
+					if d.Line > 0 {
+						loc = fmt.Sprintf("%s:%d", d.File, d.Line)
+					}
+					reportLines = append(reportLines, fmt.Sprintf("      • %s@%s in %s [%s]", pkg, version, loc, d.Type))
+				}
+			}
+		}
+		reportLines = append(reportLines, "")
 	}
 
 	// Final summary
-	fmt.Println("📋 Final Report:")
-	fmt.Printf("   Total compromised references: %d\n", len(findings))
-	fmt.Printf("   Affected projects: %d\n", len(projectGroups))
+	reportLines = append(reportLines, "📋 Final Report:")
+	reportLines = append(reportLines, fmt.Sprintf("   Total compromised references: %d", len(findings)))
+	reportLines = append(reportLines, fmt.Sprintf("   Affected projects: %d", len(projectGroups)))
 
 	// Count by package manager
 	toolCounts := make(map[string]int)
 	for _, tool := range projectTools {
 		toolCounts[tool]++
 	}
-	fmt.Println("   Projects by package manager:")
+	reportLines = append(reportLines, "   Projects by package manager:")
 	for tool, count := range toolCounts {
-		fmt.Printf("      • %s: %d\n", tool, count)
+		reportLines = append(reportLines, fmt.Sprintf("      • %s: %d", tool, count))
 	}
+
+	// Write detailed report to file (in current working directory)
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "❌ Could not get current working directory: %v\n", err)
+		return
+	}
+	reportPath := filepath.Join(cwd, "scan-report.txt")
+	f, err := os.Create(reportPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "❌ Could not write report to %s: %v\n", reportPath, err)
+		return
+	}
+	defer f.Close()
+
+	// Add timestamp to file report
+	f.WriteString("NPM Supply Chain Scan Report\n")
+	f.WriteString(fmt.Sprintf("Generated: %s\n", time.Now().Format("2006-01-02 15:04:05 MST")))
+	f.WriteString(fmt.Sprintf("Scan Directory: %s\n\n", config.BaseDir))
+	f.WriteString(strings.Repeat("=", 80) + "\n\n")
+
+	for _, line := range reportLines {
+		f.WriteString(line + "\n")
+	}
+
+	// Print summary to stdout (less verbose)
+	fmt.Printf("Found %d compromised package references across %d projects\n", len(findings), len(projectGroups))
+
+	// Count by package manager for console summary
+	if len(toolCounts) > 0 {
+		fmt.Printf("Projects by package manager: ")
+		first := true
+		for tool, count := range toolCounts {
+			if !first {
+				fmt.Printf(", ")
+			}
+			fmt.Printf("%s: %d", tool, count)
+			first = false
+		}
+		fmt.Println()
+	}
+
+	fmt.Printf("\n📝 Full detailed report written to %s\n", reportPath)
 }
