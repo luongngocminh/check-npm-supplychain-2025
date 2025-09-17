@@ -358,14 +358,36 @@ func scanGlobalCaches(jobs chan<- func(), wg *sync.WaitGroup, addFinding func(Fi
 	yarnCache := getYarnCacheDir()
 	pnpmStore := getPnpmStoreDir()
 
-	cacheDirs := []string{
-		filepath.Join(homeDir, ".npm", "_cacache"),
-		filepath.Join(homeDir, ".npm-packages"),
-		yarnCache,
-		pnpmStore,
+	var cacheDirs []string
+	if runtime.GOOS == "windows" {
+		// Windows npm cache locations
+		appDataRoaming := os.Getenv("APPDATA")
+		appDataLocal := os.Getenv("LOCALAPPDATA")
+
+		cacheDirs = []string{
+			filepath.Join(appDataRoaming, "npm-cache"),
+			filepath.Join(appDataLocal, "npm-cache"),
+			filepath.Join(homeDir, ".npm", "_cacache"), // Fallback for WSL/Git Bash
+			filepath.Join(homeDir, ".npm-packages"),
+			yarnCache,
+			pnpmStore,
+		}
+	} else {
+		// Unix-like systems
+		cacheDirs = []string{
+			filepath.Join(homeDir, ".npm", "_cacache"),
+			filepath.Join(homeDir, ".npm-packages"),
+			yarnCache,
+			pnpmStore,
+		}
 	}
 
-	cacheNames := []string{"npm _cacache", "npm-packages", "yarn cache", "pnpm store"}
+	var cacheNames []string
+	if runtime.GOOS == "windows" {
+		cacheNames = []string{"npm APPDATA cache", "npm LOCALAPPDATA cache", "npm _cacache", "npm-packages", "yarn cache", "pnpm store"}
+	} else {
+		cacheNames = []string{"npm _cacache", "npm-packages", "yarn cache", "pnpm store"}
+	}
 
 	for i, cacheDir := range cacheDirs {
 		if cacheDir != "" {
@@ -392,16 +414,38 @@ func scanNVMVersions(jobs chan<- func(), wg *sync.WaitGroup, addFinding func(Fin
 		return
 	}
 
-	nvmDir := os.Getenv("NVM_DIR")
-	if nvmDir == "" {
-		nvmDir = filepath.Join(homeDir, ".nvm")
+	var nvmDir, versionsDir string
+
+	if runtime.GOOS == "windows" {
+		// Windows typically uses nvm-windows which stores in APPDATA
+		appData := os.Getenv("APPDATA")
+		nvmDir = os.Getenv("NVM_HOME") // nvm-windows uses NVM_HOME
+		if nvmDir == "" && appData != "" {
+			nvmDir = filepath.Join(appData, "nvm")
+		}
+		if nvmDir != "" {
+			versionsDir = nvmDir // nvm-windows stores versions directly in NVM_HOME
+		}
+	} else {
+		// Unix-like systems
+		nvmDir = os.Getenv("NVM_DIR")
+		if nvmDir == "" {
+			nvmDir = filepath.Join(homeDir, ".nvm")
+		}
+		versionsDir = filepath.Join(nvmDir, "versions", "node")
 	}
 
 	if verbose {
 		fmt.Printf("  🔍 NVM directory: %s\n", nvmDir)
 	}
 
-	versionsDir := filepath.Join(nvmDir, "versions", "node")
+	if versionsDir == "" || nvmDir == "" {
+		if verbose {
+			fmt.Printf("  ❌ NVM directory not configured\n")
+		}
+		return
+	}
+
 	if _, err := os.Stat(versionsDir); err != nil {
 		if verbose {
 			fmt.Printf("  ❌ NVM versions directory not found: %s\n", versionsDir)
@@ -502,6 +546,21 @@ func getPnpmStoreDir() string {
 	return strings.TrimSpace(string(output))
 }
 
+// isRoot checks if a path is a root directory (cross-platform)
+func isRoot(path string) bool {
+	if runtime.GOOS == "windows" {
+		// On Windows, check if it's a drive root like "C:\" or "C:/"
+		if len(path) == 3 && path[1] == ':' && (path[2] == '\\' || path[2] == '/') {
+			return true
+		}
+		if len(path) == 2 && path[1] == ':' {
+			return true
+		}
+	}
+	// On Unix-like systems
+	return path == "/"
+}
+
 func printResults(findings []Finding, config ScanConfig) {
 	fmt.Println("\n📊 Summary of Findings:")
 
@@ -529,7 +588,7 @@ func printResults(findings []Finding, config ScanConfig) {
 
 		// Walk up to find project root
 		projectRoot := dir
-		for projectRoot != "/" && projectRoot != "." {
+		for !isRoot(projectRoot) && projectRoot != "." {
 			if _, err := os.Stat(filepath.Join(projectRoot, "package-lock.json")); err == nil {
 				projectTools[projectRoot] = "npm"
 				break
